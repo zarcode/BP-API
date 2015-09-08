@@ -1,11 +1,6 @@
-#BUDDYPRESS REST API
+# A JSON REST API for BuddyPress
 
-***** THIS IS NOT AN OFFICIAL PROJECT. THIS IS TO EXPLORE IDEAS FOR A BUDDYPRESS API *****
+1.0.0 Started with Activity
+1.0.1 Messages : Inbox, OutBox and Compose Messages
 
-BuddyPress JSON Api endpoints for https://github.com/WP-API/WP-API
-
-Use the WP-API plugin version 2 https://wordpress.org/plugins/rest-api
-
-THIS IS A WORK IN PROGRESS!!! currently doesn't do much.
-
-Do PRs on the develop branch if you want to contribute
+This plugin extends Version 2.0 of the [WP REST API](https://github.com/WP-API/WP-API/blob/develop/README.md).
