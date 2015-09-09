@@ -6,11 +6,21 @@ class BP_API_Messages extends WP_REST_Controller {
     * Register the routes for the objects of the controller.
     */
 	public function register_routes() { 
+    
 		register_rest_route( BP_API_SLUG, '/messages', array(
 			array(
 				'methods'         => WP_REST_Server::READABLE,
 				'callback'        => array( $this, 'get_items' ),
-				'permission_callback' => array( $this, 'bp_messages_permission' )
+				'permission_callback' => array( $this, 'bp_messages_permission' ),
+                'args' => array(
+                    'context'               => array(
+                        'default'           => 'view',
+                    ),
+                    'box'                  => array(
+                        'default'           => 'inbox'
+                    ),
+                    'filter'                => array(),
+                )
 			),
             array(
                 'methods'         => WP_REST_Server::CREATABLE,
@@ -101,9 +111,17 @@ class BP_API_Messages extends WP_REST_Controller {
 	 * @return array|WP_Error
 	 */
 	public function get_items( $request ) {
+        $args                   = array();
+		$args['box']          = $request['box'];
+
+		if ( isset( $request['filter'] ) ) {
+			$args = array_merge( $args, $request['filter'] );
+			unset( $args['filter'] );
+		}
+        
 		global $messages_template;
 		$data = array();
-		if ( bp_has_message_threads( bp_ajax_querystring( 'messages' ) ) ) {
+		if ( bp_has_message_threads($args) ) {
 			while ( bp_message_threads() ) : bp_message_thread();
 				$single_msg=array(
 				    'id'                => $messages_template->thread->thread_id,
@@ -118,14 +136,25 @@ class BP_API_Messages extends WP_REST_Controller {
 				    'excerpt'           => bp_get_message_thread_excerpt(),
 				    'content'           => bp_get_message_thread_content()
                 );
-                $links = array(
-                    'self' => array(
-                        'href' => rest_url( sprintf( BP_API_SLUG.'/messages/%d', $messages_template->thread->thread_id ) ),
-                    ),
-                    'collection' => array(
-                        'href' => rest_url( BP_API_SLUG.'/messages/' ),
-                    )
-                );
+                if($args['box'] == 'sentbox') {
+                    foreach($messages_template->thread->recipients as $user=> $userdata){
+                        if ( (int) $user !== bp_loggedin_user_id() ) {
+                            $single_msg['to'][$user]['name'] = bp_core_get_username( $user );
+                        }
+                    }
+                }
+                $links['self'] = array(
+                            'href' => rest_url( sprintf( BP_API_SLUG.'/messages/%d', $messages_template->thread->thread_id ) ),
+                        );
+                if($args['box'] == 'sentbox') {
+                    $links['collection'] = array(
+                                'href' => rest_url( BP_API_SLUG.'/messages?box=sentbox' ),
+                            );
+                } else {
+                    $links['collection'] = array(
+                            'href' => rest_url( BP_API_SLUG.'/messages/' ),
+                        );
+                }
 				$single_msg['_links']=$links;
 				$data[]=$single_msg;
 			endwhile;
@@ -157,16 +186,16 @@ class BP_API_Messages extends WP_REST_Controller {
             } else {
                 foreach( (array) $thread_template->thread->recipients as $recipient ) {
                     if ( (int) $recipient->user_id !== bp_loggedin_user_id() ) {
-                        $recipient_link = bp_core_get_user_displayname( $recipient->user_id );
+                        $recipient_name = bp_core_get_user_displayname( $recipient->user_id );
 
-                        if ( empty( $recipient_link ) ) {
-                            $recipient_link = __( 'Deleted User', BP_API_PLUGIN_SLUG );
+                        if ( empty( $recipient_name ) ) {
+                            $recipient_name = __( 'Deleted User', BP_API_PLUGIN_SLUG );
                         }
 
-                        $recipient_links[] = $recipient_link;
+                        $recipient_names[] = $recipient_name;
                     }
                 }
-                $data['thread_title'] = sprintf( __('Conversation between %s and you.' ), implode(',', $recipient_links) );
+                $data['thread_title'] = sprintf( __('Conversation between %s and you.' ), implode(',', $recipient_names) );
                 while ( bp_thread_messages() ) : bp_thread_the_message();
 
                     $data['thread_msg'][$thread_template->message->id] = (array)$thread_template->message;
